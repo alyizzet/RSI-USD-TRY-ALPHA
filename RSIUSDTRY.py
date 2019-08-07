@@ -1,45 +1,28 @@
-from clr import AddReference
-AddReference("System")
-AddReference("QuantConnect.Algorithm")
-AddReference("QuantConnect.Indicators")
-AddReference("QuantConnect.Common")
-
-from System import *
-from QuantConnect import *
-from QuantConnect.Data import *
-from QuantConnect.Algorithm import *
-from QuantConnect.Indicators import *
-from System.Collections.Generic import List
-from datetime import datetime
-
+import numpy as np
 class RSIUSDTRY(QCAlgorithm):
+    '''Basic template algorithm simply initializes the date range and cash'''
 
     def Initialize(self):
-        self.AddForex("USDTRY", Resolution.Daily, Market.OANDA)
-        self.SetStartDate(2008, 2, 1)  
-        self.SetEndDate(2019,1,1)
-        self.SetCash(100000)
-        self.SetBenchmark("SPY")
-        self.rsi = self.RSI("USDTRY", 10,  MovingAverageType.Simple, Resolution.Daily)
-        self.SetWarmUp(timedelta(20))
+        self.SetStartDate(2008,1, 1)  #Set Start Date
+        self.SetEndDate(2019,1,1)    #Set End Date
+        self.SetCash(50000)           #Set Strategy Cash
+        self.AddForex("USDTRY", Resolution.Hour, Market.Oanda)
+        self.SetBrokerageModel(BrokerageName.OandaBrokerage) 
+        self.rsi = self.RSI("USDTRY", 14)
 
     def OnData(self, data):
         
-         if not self.rsi.IsReady: return
-     
-         if self.__previous.date() == self.Time.date(): return
-         
-
-         holdings = self.Portfolio["USDTRY"].Quantity
-
-         signalrsi = self.rsi.CurrentValue
-
-      
-         if holdings <= 0 and signalrsi> 30:
-             self.SetHoldings("USDTRY", 1.0)
-
-         elif holdings >= 0 and signalrsi < 60:
-             self.Liquidate("USDTRY")
-
-
-         self.__previous = self.Time
+        if not self.rsi.IsReady: 
+            return
+    
+        if self.rsi.Current.Value < 30 and self.Portfolio["USDTRY"].Invested <= 0:
+            self.Debug("RSI is less then 30")
+            self.Order("USDTRY", 25000)
+            self.Debug("Market order was placed")
+        
+        if self.rsi.Current.Value > 70:
+            self.Debug("RSI is greater then 70")
+            self.Liquidate()
+            
+    def OnEndOfDay(self):
+        self.Plot("Indicators","RSI", self.rsi.Current.Value)                        
